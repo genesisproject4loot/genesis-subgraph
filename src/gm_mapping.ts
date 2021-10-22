@@ -79,7 +79,7 @@ export function handleTransfer(event: TransferEvent): void {
     mana.currentOwner = toWallet.id;
     mana.minted = event.block.timestamp;
     mana.tokenURI = contract.tokenURI(tokenId);
-    if (!isZeroAddress(fromId)) {
+    if (isZeroAddress(fromId)) {
       mana.OGMinterAddress = toAddress;
     }
     mana.save();
