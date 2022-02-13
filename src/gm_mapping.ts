@@ -8,7 +8,6 @@ import {
   Adventurer
 } from "../generated/schema";
 import { GenesisMana } from "../generated/GenesisMana/GenesisMana";
-import { GreatLoot } from "../generated/GenesisMana/GreatLoot";
 import { Address, BigInt } from "@graphprotocol/graph-ts";
 import {
   WEAPONS,
@@ -18,7 +17,7 @@ import {
   FOOT_ARMOR,
   HAND_ARMOR,
   CLASSES,
-  GREAT_LOOT_CONTRACT
+  GREATNESS
 } from "./constants";
 
 export function handleTransfer(event: TransferEvent): void {
@@ -78,58 +77,31 @@ export function handleTransfer(event: TransferEvent): void {
     // New Mana
     mana = createMana(event);
     let isLostMana = lootTokenId == "0";
-    let greatLootContract = GreatLoot.bind(
-      Address.fromString(GREAT_LOOT_CONTRACT)
-    );
     const lootTokenIdInt = isLostMana
       ? BigInt.fromI32(0)
       : BigInt.fromString(lootTokenId);
     if (0 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getWeaponGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, WEAPONS);
       mana.itemRank = getItemRank(mana.itemName, WEAPONS);
     } else if (1 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getChestGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, CHEST_ARMOR);
       mana.itemRank = getItemRank(mana.itemName, CHEST_ARMOR);
     } else if (2 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getHeadGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, HEAD_ARMOR);
       mana.itemRank = getItemRank(mana.itemName, HEAD_ARMOR);
     } else if (3 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getWaistGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, WAIST_ARMOR);
       mana.itemRank = getItemRank(mana.itemName, WAIST_ARMOR);
     } else if (4 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getFootGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, FOOT_ARMOR);
       mana.itemRank = getItemRank(mana.itemName, FOOT_ARMOR);
     } else if (5 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getHandGreatness(lootTokenIdInt).toI32();
       mana.itemClass = getItemClass(mana.itemName, HAND_ARMOR);
       mana.itemRank = getItemRank(mana.itemName, HAND_ARMOR);
     } else if (6 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getNeckGreatness(lootTokenIdInt).toI32();
       mana.itemClass = "";
       mana.itemRank = 1;
     } else if (7 == mana.inventoryId) {
-      mana.itemGreatness = isLostMana
-        ? 15
-        : greatLootContract.getRingGreatness(lootTokenIdInt).toI32();
       mana.itemClass = "";
       if (mana.itemName.toLowerCase().indexOf("silver")) {
         mana.itemRank = 2;
@@ -138,6 +110,15 @@ export function handleTransfer(event: TransferEvent): void {
       } else {
         mana.itemRank = 1;
       }
+    }
+
+    if (
+      lootTokenIdInt.gt(BigInt.fromI32(0)) &&
+      GREATNESS[lootTokenIdInt.toI32()]
+    ) {
+      mana.itemGreatness = GREATNESS[lootTokenIdInt.toI32()][mana.inventoryId];
+    } else {
+      mana.itemGreatness = 15;
     }
 
     if (isMinter) {
