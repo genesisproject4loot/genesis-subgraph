@@ -1,8 +1,10 @@
-
 type Mana @entity {
   id: ID!
   lootTokenId: Bag
   itemName: String!
+  itemGreatness: Int!
+  itemClass: String!
+  itemRank: Int!
   suffixId: Order!
   inventoryId: Int!
   currentOwner: Wallet!

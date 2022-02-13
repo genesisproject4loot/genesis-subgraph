@@ -6,7 +6,7 @@ dataSources:
     name: Loot
     network: mainnet
     source:
-      address: '0xff9c1b15b16263c61d017ee9f65c50e4ae0113d7'
+      address: "0xff9c1b15b16263c61d017ee9f65c50e4ae0113d7"
       abi: Loot
       startBlock: 13108876
     mapping:
@@ -43,6 +43,8 @@ dataSources:
       abis:
         - name: GenesisMana
           file: ./abis/GenesisMana.json
+        - name: GreatLoot
+          file: ./abis/GreatLoot.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
