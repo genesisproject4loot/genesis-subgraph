@@ -1,9 +1,7 @@
-import { Transfer as TransferEvent } from '../generated/GenesisAdventurer/GenesisAdventurer';
-import { Adventurer, Mana, Order, Transfer, Wallet } from '../generated/schema';
-import { GenesisAdventurer } from '../generated/GenesisAdventurer/GenesisAdventurer';
-import { BigInt } from '@graphprotocol/graph-ts';
-
-
+import { Transfer as TransferEvent } from "../generated/GenesisAdventurer/GenesisAdventurer";
+import { Adventurer, Mana, Order, Transfer, Wallet } from "../generated/schema";
+import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
+import { BigInt } from "@graphprotocol/graph-ts";
 
 export function handleTransfer(event: TransferEvent): void {
   let fromAddress = event.params.from;
@@ -11,12 +9,25 @@ export function handleTransfer(event: TransferEvent): void {
   let tokenId = event.params.tokenId;
   let fromId = fromAddress.toHex();
   let fromWallet = Wallet.load(fromId);
-  let suffixArray = ["","Power","Giants",
-    "Titans","Skill","Perfection",
-    "Brilliance","Enlightenment","Protection",
-    "Anger","Rage","Fury","Vitriol",
-    "the Fox","Detection","Reflection",
-    "the Twins"];
+  let suffixArray = [
+    "",
+    "Power",
+    "Giants",
+    "Titans",
+    "Skill",
+    "Perfection",
+    "Brilliance",
+    "Enlightenment",
+    "Protection",
+    "Anger",
+    "Rage",
+    "Fury",
+    "Vitriol",
+    "the Fox",
+    "Detection",
+    "Reflection",
+    "the Twins"
+  ];
 
   if (!fromWallet) {
     fromWallet = new Wallet(fromId);
@@ -26,7 +37,9 @@ export function handleTransfer(event: TransferEvent): void {
     fromWallet.save();
   } else {
     if (!isZeroAddress(fromId)) {
-      fromWallet.adventurersHeld = fromWallet.adventurersHeld.minus(BigInt.fromI32(1));
+      fromWallet.adventurersHeld = fromWallet.adventurersHeld.minus(
+        BigInt.fromI32(1)
+      );
       fromWallet.save();
     }
   }
@@ -84,7 +97,7 @@ export function handleTransfer(event: TransferEvent): void {
   }
 
   let transfer = new Transfer(
-    event.transaction.hash.toHex() + '-' + event.logIndex.toString()
+    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
   );
 
   transfer.adventurer = tokenId.toString();
@@ -93,9 +106,8 @@ export function handleTransfer(event: TransferEvent): void {
   transfer.txHash = event.transaction.hash;
   transfer.timestamp = event.block.timestamp;
   transfer.save();
-
 }
 
 function isZeroAddress(string: string): boolean {
-  return string == '0x0000000000000000000000000000000000000000';
+  return string == "0x0000000000000000000000000000000000000000";
 }
