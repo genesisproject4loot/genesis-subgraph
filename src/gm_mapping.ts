@@ -30,7 +30,7 @@ export function handleTransfer(event: TransferEvent): void {
   let isMinter = isZeroAddress(fromId);
 
   let fromWallet = loadWallet(event, fromAddress);
-  if (isMinter) {
+  if (!isMinter) {
     fromWallet.manasHeld = fromWallet.manasHeld.minus(BigInt.fromI32(1));
   }
   fromWallet.save();
