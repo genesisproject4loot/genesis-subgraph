@@ -103,9 +103,9 @@ export function handleTransfer(event: TransferEvent): void {
       mana.itemRank = 1;
     } else if (7 == mana.inventoryId) {
       mana.itemClass = "";
-      if (mana.itemName.toLowerCase().indexOf("silver")) {
+      if (mana.itemName.toLowerCase().indexOf("silver") > -1) {
         mana.itemRank = 2;
-      } else if (mana.itemName.toLowerCase().indexOf("bronze")) {
+      } else if (mana.itemName.toLowerCase().indexOf("bronze") > -1) {
         mana.itemRank = 3;
       } else {
         mana.itemRank = 1;
