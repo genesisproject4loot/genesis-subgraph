@@ -5,6 +5,7 @@ type Mana @entity {
   itemGreatness: Int!
   itemClass: String!
   itemRank: Int!
+  orderId: String!
   suffixId: Order!
   inventoryId: Int!
   currentOwner: Wallet!
@@ -96,4 +97,18 @@ type Transfer @entity {
   to: Wallet!
   txHash: Bytes!
   timestamp: BigInt!
+}
+
+type UnclaimedMana @entity {
+  id: ID!
+  lootTokenId: String!
+  inventoryId: Int!
+  itemName: String!
+  itemGreatness: Int!
+  itemClass: String!
+  itemRank: Int!
+  orderId: String!
+  currentOwner: Wallet!
+  isClaimed: Int!
+  tokenURI: String!
 }

@@ -16,6 +16,7 @@ dataSources:
       entities:
         - Bag
         - Transfer
+        - UnclaimedMana
         - Wallet
       abis:
         - name: Loot
@@ -39,12 +40,11 @@ dataSources:
         - Mana
         - Order
         - Transfer
+        - UnclaimedMana
         - Wallet
       abis:
         - name: GenesisMana
           file: ./abis/GenesisMana.json
-        - name: GreatLoot
-          file: ./abis/GreatLoot.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
