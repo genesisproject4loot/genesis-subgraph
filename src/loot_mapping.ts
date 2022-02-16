@@ -5,6 +5,7 @@ import { BigInt } from "@graphprotocol/graph-ts";
 import {
   getItemClass,
   getItemGreatness,
+  getItemPower,
   getItemRank,
   isZeroAddress,
   ItemType
@@ -246,6 +247,7 @@ function createUnclaimedMana(
   );
   mana.itemClass = getItemClass(itemType, itemName);
   mana.itemRank = getItemRank(itemType, itemName);
+  mana.itemPower = getItemPower(itemType, itemName);
   mana.orderId = orderId;
   mana.currentOwner = wallet;
   mana.isClaimed = 0;

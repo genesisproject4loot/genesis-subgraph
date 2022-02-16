@@ -13,6 +13,7 @@ import { Address, BigInt } from "@graphprotocol/graph-ts";
 import {
   getItemClass,
   getItemGreatness,
+  getItemPower,
   getItemRank,
   isZeroAddress
 } from "./common";
@@ -81,6 +82,7 @@ export function handleTransfer(event: TransferEvent): void {
 
     mana.itemClass = getItemClass(mana.inventoryId, mana.itemName);
     mana.itemRank = getItemRank(mana.inventoryId, mana.itemName);
+    mana.itemPower = getItemPower(mana.inventoryId, mana.itemName);
     mana.itemGreatness = getItemGreatness(mana.inventoryId, lootTokenIdInt);
 
     if (isMinter) {

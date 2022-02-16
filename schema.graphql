@@ -5,6 +5,7 @@ type Mana @entity {
   itemGreatness: Int!
   itemClass: String!
   itemRank: Int!
+  itemPower: Int!
   orderId: String!
   suffixId: Order!
   inventoryId: Int!
@@ -107,6 +108,7 @@ type UnclaimedMana @entity {
   itemGreatness: Int!
   itemClass: String!
   itemRank: Int!
+  itemPower: Int!
   orderId: String!
   currentOwner: Wallet!
   isClaimed: Int!
