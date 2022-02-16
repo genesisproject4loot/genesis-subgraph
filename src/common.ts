@@ -80,6 +80,18 @@ export function getItemRank(itemType: ItemType, itemName: string): i32 {
   return (itemIndex % 5) + 1;
 }
 
+export function getItemPower(itemType: ItemType, itemName: string): i32 {
+  const rank = getItemRank(itemType, itemName);
+  if (rank === 0) {
+    return 0;
+  }
+  if (itemType === ItemType.NECK || itemType === ItemType.RING) {
+    return 4 - rank;
+  } else {
+    return 6 - rank;
+  }
+}
+
 function getItemNames(itemType: ItemType): string[] {
   if (itemType === ItemType.WEAPON) {
     return WEAPONS;
