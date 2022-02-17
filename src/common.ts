@@ -67,7 +67,7 @@ export function getItemRank(itemType: ItemType, itemName: string): i32 {
   let itemIndex = -1;
   for (let i = 0; i < items.length; i++) {
     if (
-      items[i] &&
+      items[i] != "" &&
       itemName.toLowerCase().indexOf(items[i].toLowerCase()) > -1
     ) {
       itemIndex = i;
