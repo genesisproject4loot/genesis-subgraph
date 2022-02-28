@@ -2,10 +2,12 @@ type Mana @entity {
   id: ID!
   lootTokenId: Bag
   itemName: String!
-  itemGreatness: Int!
   itemClass: String!
   itemRank: Int!
   itemPower: Int!
+  itemGreatness: Int!
+  itemLevel: Int!
+  itemRating: Int!
   orderId: String!
   suffixId: Order!
   inventoryId: Int!
@@ -26,10 +28,15 @@ type Adventurer @entity {
   waist: String!
   weapon: String!
   order: String!
+  orderId: String!
+  greatness: Int!
+  level: Int!
+  rating: Int!
   suffixId: Order!
   orderColor: String!
   orderCount: String!
   currentOwner: Wallet!
+  lootTokenIds: [Int!]
   minted: BigInt!
   tokenURI: String!
   OGMinterAddress: Bytes!
@@ -61,6 +68,9 @@ type Bag @entity {
   ring: String!
   waist: String!
   weapon: String!
+  greatness: Int!
+  level: Int!
+  rating: Int!
   chestSuffixId: Int!
   footSuffixId: Int!
   handSuffixId: Int!
@@ -109,8 +119,25 @@ type UnclaimedMana @entity {
   itemClass: String!
   itemRank: Int!
   itemPower: Int!
+  itemLevel: Int!
+  itemRating: Int!
   orderId: String!
   currentOwner: Wallet!
   isClaimed: Int!
   tokenURI: String!
+}
+
+type LostManaName @entity {
+  id: ID!
+  lootTokenId: String!
+  inventoryId: Int!
+  total: Int!
+  available: Int!
+  orderId: String!
+  itemName: String!
+  itemGreatness: Int!
+  itemRank: Int!
+  itemLevel: Int!
+  itemRating: Int!
+  itemClass: String!
 }

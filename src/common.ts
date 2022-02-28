@@ -36,7 +36,7 @@ export function getItemClass(itemType: ItemType, itemName: string): string {
 
   for (let i = 0; i < items.length; i++) {
     if (
-      items[i] &&
+      items[i] != "" &&
       itemName.toLowerCase().indexOf(items[i].toLowerCase()) > -1
     ) {
       itemIndex = i;
@@ -75,15 +75,18 @@ export function getItemRank(itemType: ItemType, itemName: string): i32 {
     }
   }
   if (itemIndex < 0) {
-    return 0;
+    // Default Rank. Currently Catch All for Lost Mana
+    return 5;
   }
   return (itemIndex % 5) + 1;
 }
 
-export function getItemPower(itemType: ItemType, itemName: string): i32 {
+export function getItemLevel(itemType: ItemType, itemName: string): i32 {
   const rank = getItemRank(itemType, itemName);
   if (rank === 0) {
-    return 0;
+    // Default Power/Level 1
+    // Currently Catch All for Lost Mana
+    return 1;
   }
   if (itemType === ItemType.NECK || itemType === ItemType.RING) {
     return 4 - rank;
@@ -124,6 +127,49 @@ export function getItemGreatness(itemType: ItemType, lootTokenId: BigInt): i32 {
   }
 }
 
+// Expecting [[lootTokenId, iventoryId, itemName]]
+export function getBagGreatness(items: string[][]): i32 {
+  let greatness = 0;
+  for (let i = 0; i < items.length; i++) {
+    greatness += getItemGreatness(
+      BigInt.fromString(items[i][1]).toI32(),
+      BigInt.fromString(items[i][0])
+    );
+  }
+  return greatness;
+}
+
+// Expecting [[lootTokenId, iventoryId, itemName]]
+export function getBagLevel(items: string[][]): i32 {
+  let level = 0;
+  for (let i = 0; i < items.length; i++) {
+    level += getItemLevel(BigInt.fromString(items[i][1]).toI32(), items[i][2]);
+  }
+  return level;
+}
+
+// Expecting [[lootTokenId, iventoryId, itemName]]
+export function getBagRating(items: string[][]): i32 {
+  let rating = 0;
+  for (let i = 0; i < items.length; i++) {
+    rating +=
+      getItemLevel(BigInt.fromString(items[i][1]).toI32(), items[i][2]) *
+      getItemGreatness(
+        BigInt.fromString(items[i][1]).toI32(),
+        BigInt.fromString(items[i][0])
+      );
+  }
+  return rating;
+}
+
 export function isZeroAddress(string: string): boolean {
   return string == "0x0000000000000000000000000000000000000000";
+}
+
+export function arrayToI32(values: BigInt[]): i32[] {
+  const vals = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < values.length; i++) {
+    vals[i] = values[i].toI32();
+  }
+  return vals;
 }
