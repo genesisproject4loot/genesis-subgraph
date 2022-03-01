@@ -9,13 +9,15 @@ import {
   UnclaimedMana
 } from "../generated/schema";
 import { GenesisMana as GenesisManaContract } from "../generated/GenesisMana/GenesisMana";
-import { Address, BigInt } from "@graphprotocol/graph-ts";
+import { Address, BigInt, ByteArray } from "@graphprotocol/graph-ts";
 import {
   getItemClass,
   getItemGreatness,
   getItemLevel,
   getItemRank,
-  isZeroAddress
+  isZeroAddress,
+  updateAdventurer,
+  GA_CONTRACT_ADDRESS
 } from "./common";
 
 export function handleTransfer(event: TransferEvent): void {
@@ -65,6 +67,24 @@ export function handleTransfer(event: TransferEvent): void {
         adventurer.neckGM = tokenId.toString();
       } else if (7 == mana.inventoryId) {
         adventurer.ringGM = tokenId.toString();
+        let gaTransfer = Transfer.load(transferId);
+        if (gaTransfer) {
+          updateAdventurer(
+            Address.fromString(GA_CONTRACT_ADDRESS),
+            adventurer,
+            BigInt.fromString(adventurer.id),
+            [
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.weaponGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.chestGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.headGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.waistGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.footGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.handGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.neckGM)),
+              BigInt.fromString(findLootTokenIdFromMana(adventurer.ringGM))
+            ]
+          );
+        }
       }
       adventurer.save();
     }
@@ -181,4 +201,12 @@ function createMana(event: TransferEvent): Mana {
   mana.minted = event.block.timestamp;
   mana.tokenURI = contract.tokenURI(tokenId);
   return mana;
+}
+
+function findLootTokenIdFromMana(tokenId: string): string {
+  const mana = Mana.load(tokenId);
+  if (!mana || !mana.lootTokenId) {
+    return "0";
+  }
+  return mana.lootTokenId as string;
 }

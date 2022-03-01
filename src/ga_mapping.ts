@@ -9,29 +9,21 @@ import {
   Wallet,
   LostManaName
 } from "../generated/schema";
-import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
-import { Address, BigInt } from "@graphprotocol/graph-ts";
-import {
-  isZeroAddress,
-  arrayToI32,
-  getBagGreatness,
-  getBagLevel,
-  getBagRating
-} from "./common";
+import { BigInt } from "@graphprotocol/graph-ts";
+import { isZeroAddress, updateAdventurer } from "./common";
 
 export function handleNameLostMana(event: NameLostMana): void {
   const tokenId = event.params.tokenId;
   let adventurer = Adventurer.load(tokenId.toString());
   if (adventurer) {
-    updateAdventurer(event.address, adventurer);
+    updateAdventurer(event.address, adventurer, tokenId, []);
     adventurer.save();
   }
-
   const items = event.params.itemsToName;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    const lootTokenId = item[0].toBigInt();
-    const itemIndex = item[1].toI32();
+    const lootTokenId = item.lootTokenId;
+    const itemIndex = item.inventoryId;
     const composite = lootTokenId.toI32() * 10 + itemIndex;
     const lostManaName = LostManaName.load(
       BigInt.fromI32(composite).toString()
@@ -84,7 +76,16 @@ export function handleTransfer(event: TransferEvent): void {
     adventurer.save();
   } else {
     adventurer = new Adventurer(tokenId.toString());
-    updateAdventurer(event.address, adventurer);
+    updateAdventurer(event.address, adventurer, tokenId, [
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0),
+      BigInt.fromI32(0)
+    ]);
     adventurer.currentOwner = toWallet.id;
     adventurer.minted = event.block.timestamp;
 
@@ -114,61 +115,4 @@ export function handleTransfer(event: TransferEvent): void {
   transfer.txHash = event.transaction.hash;
   transfer.timestamp = event.block.timestamp;
   transfer.save();
-}
-
-function updateAdventurer(address: Address, adventurer: Adventurer): void {
-  let suffixArray = [
-    "",
-    "Power",
-    "Giants",
-    "Titans",
-    "Skill",
-    "Perfection",
-    "Brilliance",
-    "Enlightenment",
-    "Protection",
-    "Anger",
-    "Rage",
-    "Fury",
-    "Vitriol",
-    "the Fox",
-    "Detection",
-    "Reflection",
-    "the Twins"
-  ];
-  const contract = GenesisAdventurer.bind(address);
-  const tokenId = BigInt.fromString(adventurer.id);
-  const lootTokenIds = arrayToI32(
-    contract.getLootTokenIds(BigInt.fromString(adventurer.id))
-  );
-  const items = [
-    [lootTokenIds[0].toString(), "0", adventurer.weapon],
-    [lootTokenIds[1].toString(), "1", adventurer.chest],
-    [lootTokenIds[2].toString(), "2", adventurer.head],
-    [lootTokenIds[3].toString(), "3", adventurer.waist],
-    [lootTokenIds[4].toString(), "4", adventurer.foot],
-    [lootTokenIds[5].toString(), "5", adventurer.hand],
-    [lootTokenIds[6].toString(), "6", adventurer.neck],
-    [lootTokenIds[7].toString(), "7", adventurer.ring]
-  ];
-
-  adventurer.chest = contract.getChest(tokenId).toString();
-  adventurer.foot = contract.getFoot(tokenId).toString();
-  adventurer.hand = contract.getHand(tokenId).toString();
-  adventurer.head = contract.getHead(tokenId).toString();
-  adventurer.neck = contract.getNeck(tokenId).toString();
-  adventurer.ring = contract.getRing(tokenId).toString();
-  adventurer.waist = contract.getWaist(tokenId).toString();
-  adventurer.weapon = contract.getWeapon(tokenId).toString();
-  adventurer.order = contract.getOrder(tokenId).toString();
-  adventurer.orderId = suffixArray.indexOf(adventurer.order).toString();
-  adventurer.suffixId = suffixArray.indexOf(adventurer.order).toString();
-  adventurer.orderColor = contract.getOrderColor(tokenId).toString();
-  adventurer.orderCount = contract.getOrderCount(tokenId).toString();
-  adventurer.tokenURI = contract.tokenURI(tokenId);
-  adventurer.lootTokenIds = lootTokenIds;
-
-  adventurer.greatness = getBagGreatness(items);
-  adventurer.level = getBagLevel(items);
-  adventurer.rating = getBagRating(items);
 }

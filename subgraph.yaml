@@ -15,6 +15,7 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Bag
+        - LostManaName
         - Transfer
         - UnclaimedMana
         - Wallet
@@ -37,6 +38,8 @@ dataSources:
       apiVersion: 0.0.5
       language: wasm/assemblyscript
       entities:
+        - Adventurer
+        - GenesisMana
         - Mana
         - Order
         - Transfer
@@ -45,6 +48,8 @@ dataSources:
       abis:
         - name: GenesisMana
           file: ./abis/GenesisMana.json
+        - name: GenesisAdventurer
+          file: ./abis/GenesisAdventurer.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
@@ -62,6 +67,7 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Adventurer
+        - LostManaName
         - Order
         - Transfer
         - Wallet
@@ -71,4 +77,6 @@ dataSources:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
+        - event: NameLostMana(uint256,(uint256,uint8)[])
+          handler: handleNameLostMana
       file: ./src/ga_mapping.ts
