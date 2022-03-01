@@ -1,4 +1,9 @@
-import { BigInt } from "@graphprotocol/graph-ts";
+import { Address, BigInt } from "@graphprotocol/graph-ts";
+import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
+import { Adventurer } from "../generated/schema";
+
+// TODO: pass this in from subgraph yaml?
+export const GA_CONTRACT_ADDRESS = "0x8db687aceb92c66f013e1d614137238cc698fedb";
 
 import {
   WEAPONS,
@@ -172,4 +177,67 @@ export function arrayToI32(values: BigInt[]): i32[] {
     vals[i] = values[i].toI32();
   }
   return vals;
+}
+
+export function updateAdventurer(
+  address: Address,
+  adventurer: Adventurer,
+  tokenId: BigInt,
+  lootTokenIds: BigInt[]
+): void {
+  let suffixArray = [
+    "",
+    "Power",
+    "Giants",
+    "Titans",
+    "Skill",
+    "Perfection",
+    "Brilliance",
+    "Enlightenment",
+    "Protection",
+    "Anger",
+    "Rage",
+    "Fury",
+    "Vitriol",
+    "the Fox",
+    "Detection",
+    "Reflection",
+    "the Twins"
+  ];
+  const contract = GenesisAdventurer.bind(address);
+  if (lootTokenIds.length === 0) {
+    lootTokenIds = contract.getLootTokenIds(tokenId);
+  }
+
+  adventurer.chest = contract.getChest(tokenId).toString();
+  adventurer.foot = contract.getFoot(tokenId).toString();
+  adventurer.hand = contract.getHand(tokenId).toString();
+  adventurer.head = contract.getHead(tokenId).toString();
+  adventurer.neck = contract.getNeck(tokenId).toString();
+  adventurer.ring = contract.getRing(tokenId).toString();
+  adventurer.waist = contract.getWaist(tokenId).toString();
+  adventurer.weapon = contract.getWeapon(tokenId).toString();
+  adventurer.order = contract.getOrder(tokenId).toString();
+  adventurer.orderId = suffixArray.indexOf(adventurer.order).toString();
+  adventurer.suffixId = suffixArray.indexOf(adventurer.order).toString();
+  adventurer.orderColor = contract.getOrderColor(tokenId).toString();
+  adventurer.orderCount = contract.getOrderCount(tokenId).toString();
+
+  const items = [
+    [lootTokenIds[0].toString(), "0", adventurer.weapon],
+    [lootTokenIds[1].toString(), "1", adventurer.chest],
+    [lootTokenIds[2].toString(), "2", adventurer.head],
+    [lootTokenIds[3].toString(), "3", adventurer.waist],
+    [lootTokenIds[4].toString(), "4", adventurer.foot],
+    [lootTokenIds[5].toString(), "5", adventurer.hand],
+    [lootTokenIds[6].toString(), "6", adventurer.neck],
+    [lootTokenIds[7].toString(), "7", adventurer.ring]
+  ];
+  adventurer.lootTokenIds = arrayToI32(lootTokenIds);
+
+  adventurer.greatness = getBagGreatness(items);
+  adventurer.level = getBagLevel(items);
+  adventurer.rating = getBagRating(items);
+
+  adventurer.tokenURI = contract.tokenURI(tokenId);
 }
