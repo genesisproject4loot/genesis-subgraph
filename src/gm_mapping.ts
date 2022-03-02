@@ -6,7 +6,8 @@ import {
   Transfer,
   Wallet,
   Adventurer,
-  UnclaimedMana
+  UnclaimedMana,
+  LostManaName
 } from "../generated/schema";
 import { GenesisMana as GenesisManaContract } from "../generated/GenesisMana/GenesisMana";
 import { Address, BigInt, ByteArray } from "@graphprotocol/graph-ts";
@@ -19,6 +20,7 @@ import {
   updateAdventurer,
   GA_CONTRACT_ADDRESS
 } from "./common";
+import { LOST_MANA_CAP } from "./constants";
 
 export function handleTransfer(event: TransferEvent): void {
   let fromAddress = event.params.from;
@@ -114,6 +116,11 @@ export function handleTransfer(event: TransferEvent): void {
 
     if (isMinter) {
       mana.OGMinterAddress = toAddress;
+
+      // Create all lost mana names
+      if (mana.id == "1") {
+        createLostManaNames();
+      }
     }
 
     // Update order
@@ -209,4 +216,33 @@ function findLootTokenIdFromMana(tokenId: string): string {
     return "0";
   }
   return mana.lootTokenId as string;
+}
+
+function createLostManaNames(): void {
+  for (let i = 0; i < LOST_MANA_CAP.length; i++) {
+    const caps = LOST_MANA_CAP[i];
+    let composite = BigInt.fromString(caps[0]).toI32();
+    const lostManaName = new LostManaName(caps[0]);
+    const lootTokenId = BigInt.fromI32(floor(composite / 10));
+    const itemType = composite % 10;
+    const itemName = caps[3];
+    const orderId = caps[1];
+    const total = BigInt.fromString(caps[2]).toI32();
+    lostManaName.lootTokenId = lootTokenId.toString();
+    lostManaName.inventoryId = itemType;
+    lostManaName.available = total;
+    lostManaName.total = total;
+    lostManaName.orderId = orderId;
+    lostManaName.itemName = itemName;
+
+    // GLR
+    lostManaName.itemClass = getItemClass(itemType, itemName);
+    lostManaName.itemGreatness = getItemGreatness(itemType, lootTokenId);
+    lostManaName.itemLevel = getItemLevel(itemType, itemName);
+    lostManaName.itemRating =
+      getItemGreatness(itemType, lootTokenId) *
+      getItemLevel(itemType, itemName);
+    lostManaName.itemRank = getItemRank(itemType, itemName);
+    lostManaName.save();
+  }
 }

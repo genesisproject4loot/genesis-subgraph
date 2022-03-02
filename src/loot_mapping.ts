@@ -1,11 +1,5 @@
 import { Transfer as TransferEvent } from "../generated/Loot/Loot";
-import {
-  Bag,
-  Transfer,
-  Wallet,
-  UnclaimedMana,
-  LostManaName
-} from "../generated/schema";
+import { Bag, Transfer, Wallet, UnclaimedMana } from "../generated/schema";
 import { Loot } from "../generated/Loot/Loot";
 import { BigInt } from "@graphprotocol/graph-ts";
 import {
@@ -16,7 +10,6 @@ import {
   isZeroAddress,
   ItemType
 } from "./common";
-import { LOST_MANA_CAP } from "./constants";
 
 export function handleTransfer(event: TransferEvent): void {
   let fromAddress = event.params.from;
@@ -223,8 +216,6 @@ export function handleTransfer(event: TransferEvent): void {
     bag.manasClaimed = BigInt.fromI32(0);
     bag.manasUnclaimed = bag.manasTotalCount;
     bag.save();
-
-    tryCreateLostManaNames(tokenId);
   }
 
   let transfer = new Transfer(
@@ -271,42 +262,4 @@ function createUnclaimedMana(
   mana.isClaimed = 0;
   mana.tokenURI = "";
   mana.save();
-}
-
-function tryCreateLostManaNames(lootTokenId: BigInt): void {
-  const tokenId = lootTokenId.toI32() * 10;
-
-  for (let i = 0; i < LOST_MANA_CAP.length; i++) {
-    const caps = LOST_MANA_CAP[i];
-    let composite = BigInt.fromString(caps[0]).toI32();
-    if (composite > tokenId + 7) {
-      return;
-    }
-    if (composite < tokenId) {
-      continue;
-    }
-
-    const lostManaName = new LostManaName(caps[0]);
-    const itemType = composite % 10;
-    const itemName = caps[3];
-    const orderId = caps[1];
-    const total = BigInt.fromString(caps[2]).toI32();
-    lostManaName.lootTokenId = lootTokenId.toString();
-    lostManaName.inventoryId = itemType;
-    lostManaName.available = total;
-    lostManaName.total = total;
-    lostManaName.orderId = orderId;
-    lostManaName.itemName = itemName;
-
-    // GLR
-    lostManaName.itemClass = getItemClass(itemType, itemName);
-    lostManaName.itemGreatness = getItemGreatness(itemType, lootTokenId);
-    lostManaName.itemLevel = getItemLevel(itemType, itemName);
-    lostManaName.itemRating =
-      getItemGreatness(itemType, lootTokenId) *
-      getItemLevel(itemType, itemName);
-    lostManaName.itemRank = getItemRank(itemType, itemName);
-
-    lostManaName.save();
-  }
 }
