@@ -1,6 +1,7 @@
 import {
   Transfer as TransferEvent,
-  NameLostMana
+  NameLostMana,
+  NameAdventurer
 } from "../generated/GenesisAdventurer/GenesisAdventurer";
 import {
   Adventurer,
@@ -32,6 +33,15 @@ export function handleNameLostMana(event: NameLostMana): void {
       lostManaName.available = lostManaName.available - 1;
       lostManaName.save();
     }
+  }
+}
+
+export function handleNameAdventurer(event: NameAdventurer): void {
+  const tokenId = event.params.tokenId;
+  let adventurer = Adventurer.load(tokenId.toString());
+  if (adventurer) {
+    updateAdventurer(event.address, adventurer, tokenId, []);
+    adventurer.save();
   }
 }
 

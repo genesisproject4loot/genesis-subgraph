@@ -79,4 +79,6 @@ dataSources:
           handler: handleTransfer
         - event: NameLostMana(uint256,(uint256,uint8)[])
           handler: handleNameLostMana
+        - event: NameAdventurer(uint256,string)
+          handler: handleNameAdventurer
       file: ./src/ga_mapping.ts
