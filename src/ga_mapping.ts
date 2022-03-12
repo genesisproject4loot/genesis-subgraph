@@ -1,25 +1,82 @@
 import {
   Transfer as TransferEvent,
   NameLostMana,
-  NameAdventurer
+  NameAdventurer,
+  GenesisAdventurer
 } from "../generated/GenesisAdventurer/GenesisAdventurer";
+import { Adventurer, Order, LostManaName } from "../generated/schema";
+import { Address, BigInt } from "@graphprotocol/graph-ts";
+import { getTransfer, getWallets, isZeroAddress } from "./common";
 import {
-  Adventurer,
-  Order,
-  Transfer,
-  Wallet,
-  LostManaName
-} from "../generated/schema";
-import { BigInt } from "@graphprotocol/graph-ts";
-import { isZeroAddress, updateAdventurer } from "./common";
+  getAdventurerGreatness,
+  getAdventurerLevel,
+  getAdventurerRating
+} from "./glr_utils";
+
+const V3_CONTRACT_START_TOKEN_ID = BigInt.fromI32(480);
+
+export function handleTransfer(event: TransferEvent): void {
+  let tokenId = event.params.tokenId;
+  let wallets = getWallets(event.params.from, event.params.to, event);
+
+  if (!isZeroAddress(wallets.fromWallet.id)) {
+    wallets.fromWallet.adventurersHeld = wallets.fromWallet.adventurersHeld.minus(
+      BigInt.fromI32(1)
+    );
+  }
+  wallets.fromWallet.save();
+
+  wallets.toWallet.adventurersHeld = wallets.toWallet.adventurersHeld.plus(
+    BigInt.fromI32(1)
+  );
+  wallets.toWallet.save();
+
+  let adventurer = Adventurer.load(tokenId.toString());
+  if (adventurer != null) {
+    adventurer.currentOwner = wallets.toWallet.id;
+    adventurer.save();
+  } else {
+    adventurer = new Adventurer(tokenId.toString());
+    let contract = GenesisAdventurer.bind(event.address);
+
+    // Loot Token Ids aren't availble yet on inital GA Transfer
+    // resurrectGA call handler will fill in lootIds
+    updateGAdventurerWithLootTokenIds(adventurer, [], contract);
+    adventurer.currentOwner = wallets.toWallet.id;
+    adventurer.minted = event.block.timestamp;
+
+    if (isZeroAddress(wallets.fromWallet.id)) {
+      adventurer.OGMinterAddress = wallets.toWallet.address;
+    }
+    adventurer.save();
+
+    let order = Order.load(adventurer.suffixId);
+    if (!order) {
+      order = new Order(adventurer.suffixId);
+      order.adventurersHeld = BigInt.fromI32(1);
+      order.save();
+    } else {
+      order.adventurersHeld = order.adventurersHeld.plus(BigInt.fromI32(1));
+      order.save();
+    }
+
+    // New V3 contract updates renderer
+    if (tokenId.equals(V3_CONTRACT_START_TOKEN_ID)) {
+      refreshAdventurersBeforeTokenId(
+        V3_CONTRACT_START_TOKEN_ID,
+        event.address
+      );
+    }
+  }
+
+  let transfer = getTransfer(event, wallets);
+  transfer.adventurer = tokenId.toString();
+  transfer.save();
+}
 
 export function handleNameLostMana(event: NameLostMana): void {
-  const tokenId = event.params.tokenId;
-  let adventurer = Adventurer.load(tokenId.toString());
-  if (adventurer) {
-    updateAdventurer(event.address, adventurer, tokenId, []);
-    adventurer.save();
-  }
+  refreshAdventurerByTokenId(event.params.tokenId, event.address);
+
   const items = event.params.itemsToName;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -37,92 +94,97 @@ export function handleNameLostMana(event: NameLostMana): void {
 }
 
 export function handleNameAdventurer(event: NameAdventurer): void {
-  const tokenId = event.params.tokenId;
+  refreshAdventurerByTokenId(event.params.tokenId, event.address);
+}
+
+function refreshAdventurersBeforeTokenId(
+  tokenId: BigInt,
+  contractAddress: Address
+): void {
+  if (tokenId.lt(BigInt.fromI32(1))) {
+    return;
+  }
+  for (let i = tokenId.toI32() - 1; i > 0; i--) {
+    refreshAdventurerByTokenId(BigInt.fromI32(i), contractAddress);
+  }
+}
+
+function refreshAdventurerByTokenId(
+  tokenId: BigInt,
+  contractAddress: Address
+): void {
   let adventurer = Adventurer.load(tokenId.toString());
-  if (adventurer) {
-    updateAdventurer(event.address, adventurer, tokenId, []);
+  if (adventurer != null) {
+    let contract = GenesisAdventurer.bind(contractAddress);
+    updateGAdventurerWithLootTokenIds(
+      adventurer,
+      contract.getLootTokenIds(tokenId),
+      contract
+    );
     adventurer.save();
   }
 }
 
-export function handleTransfer(event: TransferEvent): void {
-  let fromAddress = event.params.from;
-  let toAddress = event.params.to;
-  let tokenId = event.params.tokenId;
-  let fromId = fromAddress.toHex();
-  let fromWallet = Wallet.load(fromId);
+export function updateGAdventurerWithLootTokenIds(
+  adventurer: Adventurer,
+  lootTokenIds: BigInt[],
+  contract: GenesisAdventurer
+): void {
+  const tokenId = BigInt.fromString(adventurer.id);
+  adventurer.chest = contract.getChest(tokenId).toString();
+  adventurer.foot = contract.getFoot(tokenId).toString();
+  adventurer.hand = contract.getHand(tokenId).toString();
+  adventurer.head = contract.getHead(tokenId).toString();
+  adventurer.neck = contract.getNeck(tokenId).toString();
+  adventurer.ring = contract.getRing(tokenId).toString();
+  adventurer.waist = contract.getWaist(tokenId).toString();
+  adventurer.weapon = contract.getWeapon(tokenId).toString();
+  adventurer.order = contract.getOrder(tokenId).toString();
+  adventurer.orderId = getOrderId(adventurer.order);
+  adventurer.suffixId = getOrderId(adventurer.order);
+  adventurer.orderColor = contract.getOrderColor(tokenId).toString();
+  adventurer.orderCount = contract.getOrderCount(tokenId).toString();
 
-  if (!fromWallet) {
-    fromWallet = new Wallet(fromId);
-    fromWallet.address = fromAddress;
-    fromWallet.joined = event.block.timestamp;
-    fromWallet.adventurersHeld = BigInt.fromI32(0);
-    fromWallet.save();
+  if (lootTokenIds.length == 0) {
+    adventurer.lootTokenIds = [];
+    adventurer.greatness = 0;
+    adventurer.level = 0;
+    adventurer.rating = 0;
   } else {
-    if (!isZeroAddress(fromId)) {
-      fromWallet.adventurersHeld = fromWallet.adventurersHeld.minus(
-        BigInt.fromI32(1)
-      );
-      fromWallet.save();
-    }
+    adventurer.lootTokenIds = lootTokenIds.map(function(
+      tokenId: BigInt,
+      index: i32,
+      array: BigInt[]
+    ): i32 {
+      return tokenId.toI32();
+    });
+    adventurer.greatness = getAdventurerGreatness(adventurer);
+    adventurer.level = getAdventurerLevel(adventurer);
+    adventurer.rating = getAdventurerRating(adventurer);
   }
 
-  let toId = toAddress.toHex();
-  let toWallet = Wallet.load(toId);
-  if (!toWallet) {
-    toWallet = new Wallet(toId);
-    toWallet.address = toAddress;
-    toWallet.joined = event.block.timestamp;
-    toWallet.adventurersHeld = BigInt.fromI32(1);
-    toWallet.save();
-  } else {
-    toWallet.adventurersHeld = toWallet.adventurersHeld.plus(BigInt.fromI32(1));
-    toWallet.save();
-  }
+  adventurer.tokenURI = contract.tokenURI(tokenId);
+}
 
-  let adventurer = Adventurer.load(tokenId.toString());
-  if (adventurer != null) {
-    adventurer.currentOwner = toWallet.id;
-    adventurer.save();
-  } else {
-    adventurer = new Adventurer(tokenId.toString());
-    updateAdventurer(event.address, adventurer, tokenId, [
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0),
-      BigInt.fromI32(0)
-    ]);
-    adventurer.currentOwner = toWallet.id;
-    adventurer.minted = event.block.timestamp;
-
-    if (isZeroAddress(fromId)) {
-      adventurer.OGMinterAddress = toAddress;
-    }
-    adventurer.save();
-
-    let order = Order.load(adventurer.suffixId);
-    if (!order) {
-      order = new Order(adventurer.suffixId);
-      order.adventurersHeld = BigInt.fromI32(1);
-      order.save();
-    } else {
-      order.adventurersHeld = order.adventurersHeld.plus(BigInt.fromI32(1));
-      order.save();
-    }
-  }
-
-  let transfer = new Transfer(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  );
-
-  transfer.adventurer = tokenId.toString();
-  transfer.from = fromWallet.id;
-  transfer.to = toWallet.id;
-  transfer.txHash = event.transaction.hash;
-  transfer.timestamp = event.block.timestamp;
-  transfer.save();
+function getOrderId(orderName: string): string {
+  const suffixArray = [
+    "",
+    "Power",
+    "Giants",
+    "Titans",
+    "Skill",
+    "Perfection",
+    "Brilliance",
+    "Enlightenment",
+    "Protection",
+    "Anger",
+    "Rage",
+    "Fury",
+    "Vitriol",
+    "the Fox",
+    "Detection",
+    "Reflection",
+    "the Twins"
+  ];
+  return suffixArray.indexOf(orderName).toString();
 }

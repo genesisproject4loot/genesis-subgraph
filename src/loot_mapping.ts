@@ -2,19 +2,32 @@ import { Transfer as TransferEvent } from "../generated/Loot/Loot";
 import { Bag, Transfer, Wallet, UnclaimedMana } from "../generated/schema";
 import { Loot } from "../generated/Loot/Loot";
 import { BigInt } from "@graphprotocol/graph-ts";
+import { getWallets, isZeroAddress } from "./common";
 import {
+  getGreatnessByItem,
   getItemClass,
-  getItemGreatness,
   getItemLevel,
   getItemRank,
-  isZeroAddress,
   ItemType
-} from "./common";
+} from "./glr_utils";
 
 export function handleTransfer(event: TransferEvent): void {
-  let fromAddress = event.params.from;
-  let toAddress = event.params.to;
   let tokenId = event.params.tokenId;
+  let wallets = getWallets(event.params.from, event.params.to, event);
+
+  if (!isZeroAddress(wallets.fromWallet.id)) {
+    wallets.fromWallet.bagsHeld = wallets.fromWallet.bagsHeld.minus(
+      BigInt.fromI32(1)
+    );
+  }
+  wallets.fromWallet.save();
+
+  wallets.toWallet.bagsHeld = wallets.toWallet.bagsHeld.plus(BigInt.fromI32(1));
+  wallets.toWallet.save();
+
+  // let fromAddress = event.params.from;
+  // let toAddress = event.params.to;
+  // let tokenId = event.params.tokenId;
   let suffixArray = [
     "",
     "Power",
@@ -35,45 +48,45 @@ export function handleTransfer(event: TransferEvent): void {
     "the Twins"
   ];
 
-  let fromId = fromAddress.toHex();
-  let fromWallet = Wallet.load(fromId);
-  if (!fromWallet) {
-    fromWallet = new Wallet(fromId);
-    fromWallet.address = fromAddress;
-    fromWallet.joined = event.block.timestamp;
-    fromWallet.bagsHeld = BigInt.fromI32(0);
-    fromWallet.save();
-  } else {
-    if (!isZeroAddress(fromId)) {
-      fromWallet.bagsHeld = fromWallet.bagsHeld.minus(BigInt.fromI32(1));
-      fromWallet.save();
-    }
-  }
+  // let fromId = fromAddress.toHex();
+  // let fromWallet = Wallet.load(fromId);
+  // if (!fromWallet) {
+  //   fromWallet = new Wallet(fromId);
+  //   fromWallet.address = fromAddress;
+  //   fromWallet.joined = event.block.timestamp;
+  //   fromWallet.bagsHeld = BigInt.fromI32(0);
+  //   fromWallet.save();
+  // } else {
+  //   if (!isZeroAddress(fromId)) {
+  //     fromWallet.bagsHeld = fromWallet.bagsHeld.minus(BigInt.fromI32(1));
+  //     fromWallet.save();
+  //   }
+  // }
 
-  let toId = toAddress.toHex();
-  let toWallet = Wallet.load(toId);
-  if (!toWallet) {
-    toWallet = new Wallet(toId);
-    toWallet.address = toAddress;
-    toWallet.joined = event.block.timestamp;
-    toWallet.bagsHeld = BigInt.fromI32(1);
-    toWallet.bagsHeld = BigInt.fromI32(1);
-    toWallet.save();
-  } else {
-    toWallet.bagsHeld = toWallet.bagsHeld.plus(BigInt.fromI32(1));
-    toWallet.save();
-  }
+  // let toId = toAddress.toHex();
+  // let toWallet = Wallet.load(toId);
+  // if (!toWallet) {
+  //   toWallet = new Wallet(toId);
+  //   toWallet.address = toAddress;
+  //   toWallet.joined = event.block.timestamp;
+  //   toWallet.bagsHeld = BigInt.fromI32(1);
+  //   toWallet.bagsHeld = BigInt.fromI32(1);
+  //   toWallet.save();
+  // } else {
+  //   toWallet.bagsHeld = toWallet.bagsHeld.plus(BigInt.fromI32(1));
+  //   toWallet.save();
+  // }
 
   let bag = Bag.load(tokenId.toString());
   if (bag != null) {
-    bag.currentOwner = toWallet.id;
+    bag.currentOwner = wallets.toWallet.id;
     bag.save();
 
     // Updated unclaimed mana owner
     for (let i = 0; i < 8; i++) {
       let unclaimedMana = UnclaimedMana.load(`${tokenId.toString()}:${i}`);
       if (unclaimedMana) {
-        unclaimedMana.currentOwner = toWallet.id;
+        unclaimedMana.currentOwner = wallets.toWallet.id;
         unclaimedMana.save();
       }
     }
@@ -95,7 +108,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.CHEST,
         bag.chestSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.chestSuffixId = 0;
 
@@ -111,7 +124,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.FOOT,
         bag.footSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.footSuffixId = 0;
 
@@ -127,7 +140,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.HAND,
         bag.handSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.handSuffixId = 0;
 
@@ -143,7 +156,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.HEAD,
         bag.headSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.headSuffixId = 0;
 
@@ -159,7 +172,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.NECK,
         bag.neckSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.neckSuffixId = 0;
 
@@ -175,7 +188,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.RING,
         bag.ringSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.ringSuffixId = 0;
 
@@ -191,7 +204,7 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.WAIST,
         bag.waistSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.waistSuffixId = 0;
 
@@ -207,11 +220,11 @@ export function handleTransfer(event: TransferEvent): void {
         ItemType.WEAPON,
         bag.weaponSuffixId.toString(),
         item,
-        toId
+        wallets.toWallet.id
       );
     } else bag.weaponSuffixId = 0;
 
-    bag.currentOwner = toWallet.id;
+    bag.currentOwner = wallets.toWallet.id;
     bag.minted = event.block.timestamp;
     bag.manasClaimed = BigInt.fromI32(0);
     bag.manasUnclaimed = bag.manasTotalCount;
@@ -223,8 +236,8 @@ export function handleTransfer(event: TransferEvent): void {
   );
 
   transfer.bag = tokenId.toString();
-  transfer.from = fromWallet.id;
-  transfer.to = toWallet.id;
+  transfer.from = wallets.fromWallet.id;
+  transfer.to = wallets.toWallet.id;
   transfer.txHash = event.transaction.hash;
   transfer.timestamp = event.block.timestamp;
   transfer.save();
@@ -242,20 +255,19 @@ function createUnclaimedMana(
   mana.inventoryId = itemType;
   mana.itemName = itemName;
 
+  const lootTokenIdInt = BigInt.fromString(lootTokenId);
+
   // Deprecated
-  mana.itemPower = getItemLevel(itemType, itemName);
+  mana.itemPower = getItemLevel(lootTokenIdInt, itemType, itemName);
   mana.itemRank = getItemRank(itemType, itemName);
 
   // GLR
   mana.itemClass = getItemClass(itemType, itemName);
-  mana.itemGreatness = getItemGreatness(
-    itemType,
-    BigInt.fromString(lootTokenId)
-  );
-  mana.itemLevel = getItemLevel(itemType, itemName);
+  mana.itemGreatness = getGreatnessByItem(lootTokenIdInt, itemType);
+  mana.itemLevel = getItemLevel(lootTokenIdInt, itemType, itemName);
   mana.itemRating =
-    getItemGreatness(itemType, BigInt.fromString(lootTokenId)) *
-    getItemLevel(itemType, itemName);
+    getGreatnessByItem(lootTokenIdInt, itemType) *
+    getItemLevel(lootTokenIdInt, itemType, itemName);
 
   mana.orderId = orderId;
   mana.currentOwner = wallet;

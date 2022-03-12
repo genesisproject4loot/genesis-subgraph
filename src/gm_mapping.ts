@@ -4,93 +4,43 @@ import {
   Order,
   Bag,
   Transfer,
-  Wallet,
   Adventurer,
   UnclaimedMana,
   LostManaName
 } from "../generated/schema";
 import { GenesisMana as GenesisManaContract } from "../generated/GenesisMana/GenesisMana";
-import { Address, BigInt, ByteArray } from "@graphprotocol/graph-ts";
-import {
-  getItemClass,
-  getItemGreatness,
-  getItemLevel,
-  getItemRank,
-  isZeroAddress,
-  updateAdventurer,
-  GA_CONTRACT_ADDRESS
-} from "./common";
+import { Address, BigInt } from "@graphprotocol/graph-ts";
+import { getTransfer, getWallets, isZeroAddress } from "./common";
 import { LOST_MANA_CAP } from "./constants";
+import {
+  getGreatnessByItem,
+  getItemClass,
+  getItemLevel,
+  getItemRank
+} from "./glr_utils";
+import { updateGAdventurerWithLootTokenIds } from "./ga_mapping";
+import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
 
 export function handleTransfer(event: TransferEvent): void {
-  let fromAddress = event.params.from;
-  let toAddress = event.params.to;
   let tokenId = event.params.tokenId;
-  let fromId = fromAddress.toHex();
-  let lootTokenId = "0";
-  let isMinter = isZeroAddress(fromId);
+  let wallets = getWallets(event.params.from, event.params.to, event);
 
-  let fromWallet = loadWallet(event, fromAddress);
-  if (!isMinter) {
-    fromWallet.manasHeld = fromWallet.manasHeld.minus(BigInt.fromI32(1));
+  if (!isZeroAddress(wallets.fromWallet.id)) {
+    wallets.fromWallet.manasHeld = wallets.fromWallet.manasHeld.minus(
+      BigInt.fromI32(1)
+    );
   }
-  fromWallet.save();
+  wallets.fromWallet.save();
 
-  let toWallet = loadWallet(event, toAddress);
-  toWallet.manasHeld = toWallet.manasHeld.plus(BigInt.fromI32(1));
-  toWallet.save();
+  wallets.toWallet.manasHeld = wallets.toWallet.manasHeld.plus(
+    BigInt.fromI32(1)
+  );
+  wallets.toWallet.save();
 
+  let lootTokenId = "0";
   let mana = Mana.load(tokenId.toString());
 
-  if (mana != null) {
-    // If transfer is from resurrectGA update GA object with mana.
-    // Mana tokenId is not currently visible in GA contract
-    let transferId =
-      event.transaction.hash.toHex() +
-      "-" +
-      event.logIndex
-        .minus(BigInt.fromI32((mana.inventoryId + 1) * 2))
-        .toString();
-    let adventurer = findAdventurerByTransferId(transferId);
-    if (adventurer != null) {
-      if (0 == mana.inventoryId) {
-        adventurer.weaponGM = tokenId.toString();
-      } else if (1 == mana.inventoryId) {
-        adventurer.chestGM = tokenId.toString();
-      } else if (2 == mana.inventoryId) {
-        adventurer.headGM = tokenId.toString();
-      } else if (3 == mana.inventoryId) {
-        adventurer.waistGM = tokenId.toString();
-      } else if (4 == mana.inventoryId) {
-        adventurer.footGM = tokenId.toString();
-      } else if (5 == mana.inventoryId) {
-        adventurer.handGM = tokenId.toString();
-      } else if (6 == mana.inventoryId) {
-        adventurer.neckGM = tokenId.toString();
-      } else if (7 == mana.inventoryId) {
-        adventurer.ringGM = tokenId.toString();
-        let gaTransfer = Transfer.load(transferId);
-        if (gaTransfer) {
-          updateAdventurer(
-            Address.fromString(GA_CONTRACT_ADDRESS),
-            adventurer,
-            BigInt.fromString(adventurer.id),
-            [
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.weaponGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.chestGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.headGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.waistGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.footGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.handGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.neckGM)),
-              BigInt.fromString(findLootTokenIdFromMana(adventurer.ringGM))
-            ]
-          );
-        }
-      }
-      adventurer.save();
-    }
-  } else {
+  if (mana == null) {
     let contract = GenesisManaContract.bind(event.address);
     let manaDetails = contract.detailsByToken(tokenId);
     lootTokenId = manaDetails.value0.toString();
@@ -103,19 +53,27 @@ export function handleTransfer(event: TransferEvent): void {
       : BigInt.fromString(lootTokenId);
 
     // Deprecated
-    mana.itemPower = getItemLevel(mana.inventoryId, mana.itemName);
+    mana.itemPower = getItemLevel(
+      lootTokenIdInt,
+      mana.inventoryId,
+      mana.itemName
+    );
     mana.itemRank = getItemRank(mana.inventoryId, mana.itemName);
 
     // GLR
     mana.itemClass = getItemClass(mana.inventoryId, mana.itemName);
-    mana.itemGreatness = getItemGreatness(mana.inventoryId, lootTokenIdInt);
-    mana.itemLevel = getItemLevel(mana.inventoryId, mana.itemName);
-    mana.itemRating =
-      getItemGreatness(mana.inventoryId, lootTokenIdInt) *
-      getItemLevel(mana.inventoryId, mana.itemName);
+    mana.itemGreatness = isLostMana
+      ? 15
+      : getGreatnessByItem(lootTokenIdInt, mana.inventoryId);
+    mana.itemLevel = getItemLevel(
+      lootTokenIdInt,
+      mana.inventoryId,
+      mana.itemName
+    );
+    mana.itemRating = mana.itemGreatness * mana.itemLevel;
 
-    if (isMinter) {
-      mana.OGMinterAddress = toAddress;
+    if (isZeroAddress(wallets.fromWallet.id)) {
+      mana.OGMinterAddress = wallets.toWallet.address;
 
       // Create all lost mana names
       if (mana.id == "1") {
@@ -147,7 +105,7 @@ export function handleTransfer(event: TransferEvent): void {
   }
 
   // Update currentOwner
-  mana.currentOwner = toWallet.id;
+  mana.currentOwner = wallets.toWallet.id;
   mana.save();
 
   if (lootTokenId != "0") {
@@ -160,36 +118,11 @@ export function handleTransfer(event: TransferEvent): void {
     }
   }
 
-  let transfer = new Transfer(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  );
-
+  let transfer = getTransfer(event, wallets);
   transfer.mana = tokenId.toString();
-  transfer.from = fromWallet.id;
-  transfer.to = toWallet.id;
-  transfer.txHash = event.transaction.hash;
-  transfer.timestamp = event.block.timestamp;
   transfer.save();
-}
 
-function loadWallet(event: TransferEvent, address: Address): Wallet {
-  const walletId = address.toHex();
-  let wallet = Wallet.load(walletId);
-  if (!wallet) {
-    wallet = new Wallet(walletId);
-    wallet.address = address;
-    wallet.joined = event.block.timestamp;
-    wallet.manasHeld = BigInt.fromI32(0);
-  }
-  return wallet;
-}
-
-function findAdventurerByTransferId(transferId: string): Adventurer | null {
-  let gaTransfer = Transfer.load(transferId);
-  if (gaTransfer == null || gaTransfer.adventurer == null) {
-    return null;
-  }
-  return Adventurer.load(gaTransfer.adventurer as string);
+  updateAdventurerIfSummoned(event);
 }
 
 function createMana(event: TransferEvent): Mana {
@@ -208,14 +141,6 @@ function createMana(event: TransferEvent): Mana {
   mana.minted = event.block.timestamp;
   mana.tokenURI = contract.tokenURI(tokenId);
   return mana;
-}
-
-function findLootTokenIdFromMana(tokenId: string): string {
-  const mana = Mana.load(tokenId);
-  if (!mana || !mana.lootTokenId) {
-    return "0";
-  }
-  return mana.lootTokenId as string;
 }
 
 function createLostManaNames(): void {
@@ -237,12 +162,76 @@ function createLostManaNames(): void {
 
     // GLR
     lostManaName.itemClass = getItemClass(itemType, itemName);
-    lostManaName.itemGreatness = getItemGreatness(itemType, lootTokenId);
-    lostManaName.itemLevel = getItemLevel(itemType, itemName);
+    lostManaName.itemGreatness = getGreatnessByItem(lootTokenId, itemType);
+    lostManaName.itemLevel = getItemLevel(lootTokenId, itemType, itemName);
     lostManaName.itemRating =
-      getItemGreatness(itemType, lootTokenId) *
-      getItemLevel(itemType, itemName);
+      getGreatnessByItem(lootTokenId, itemType) *
+      getItemLevel(lootTokenId, itemType, itemName);
     lostManaName.itemRank = getItemRank(itemType, itemName);
     lostManaName.save();
   }
+}
+
+function updateAdventurerIfSummoned(event: TransferEvent): void {
+  // If GA summoning, last transfer will be the ring at logIndex 16
+  if (event.logIndex.toString() != "16") {
+    return;
+  }
+
+  // GAdventurer is the first transfer in transaction
+  const transaction = event.transaction.hash.toHex();
+  const gaTransfer = Transfer.load(transaction + "-0");
+
+  if (gaTransfer == null || gaTransfer.adventurer == null) {
+    return;
+  }
+
+  const tokenId = gaTransfer.adventurer as string;
+  const adventurer = Adventurer.load(tokenId);
+  if (adventurer == null) {
+    return;
+  }
+  updateGAdventurerWithLootTokenIds(
+    adventurer as Adventurer,
+    [
+      getLootIdByManaTransferId(transaction + "-2"), // Weapon
+      getLootIdByManaTransferId(transaction + "-4"), // Chest
+      getLootIdByManaTransferId(transaction + "-6"), // Head
+      getLootIdByManaTransferId(transaction + "-8"), // Waist
+      getLootIdByManaTransferId(transaction + "-10"), // Foot
+      getLootIdByManaTransferId(transaction + "-12"), // Hand
+      getLootIdByManaTransferId(transaction + "-14"), // Neck
+      getLootIdByManaTransferId(transaction + "-16") // Ring
+    ],
+    GenesisAdventurer.bind(event.transaction.to as Address)
+  );
+  adventurer.weaponGM = getManaTokenId(transaction + "-2");
+  adventurer.chestGM = getManaTokenId(transaction + "-4");
+  adventurer.headGM = getManaTokenId(transaction + "-6");
+  adventurer.waistGM = getManaTokenId(transaction + "-8");
+  adventurer.footGM = getManaTokenId(transaction + "-10");
+  adventurer.handGM = getManaTokenId(transaction + "-12");
+  adventurer.neckGM = getManaTokenId(transaction + "-14");
+  adventurer.ringGM = getManaTokenId(transaction + "-16");
+
+  adventurer.save();
+}
+
+function getManaTokenId(transferId: string): string {
+  const manaTransfer = Transfer.load(transferId);
+  if (manaTransfer == null || manaTransfer.mana == null) {
+    return "";
+  }
+  return manaTransfer.mana as string;
+}
+function getLootIdByManaTransferId(transferId: string): BigInt {
+  const manaTokenId = getManaTokenId(transferId);
+  if (manaTokenId.length == 0) {
+    return BigInt.fromI32(0);
+  }
+  const mana = Mana.load(manaTokenId);
+  if (mana == null || mana.lootTokenId == null) {
+    return BigInt.fromI32(0);
+  }
+  return BigInt.fromString(mana.lootTokenId as string);
 }
