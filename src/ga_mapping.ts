@@ -31,6 +31,7 @@ export function handleTransfer(event: TransferEvent): void {
   );
   wallets.toWallet.save();
 
+  let refreshTokensPriorToV3 = false;
   let adventurer = Adventurer.load(tokenId.toString());
   if (adventurer != null) {
     adventurer.currentOwner = wallets.toWallet.id;
@@ -41,7 +42,7 @@ export function handleTransfer(event: TransferEvent): void {
 
     // Loot Token Ids aren't availble yet on inital GA Transfer
     // resurrectGA call handler will fill in lootIds
-    updateGAdventurerWithLootTokenIds(adventurer, [], contract);
+    updateAdventurerWithLootTokenIds(adventurer, [], contract);
     adventurer.currentOwner = wallets.toWallet.id;
     adventurer.minted = event.block.timestamp;
 
@@ -59,19 +60,17 @@ export function handleTransfer(event: TransferEvent): void {
       order.adventurersHeld = order.adventurersHeld.plus(BigInt.fromI32(1));
       order.save();
     }
-
-    // New V3 contract updates renderer
-    if (tokenId.equals(V3_CONTRACT_START_TOKEN_ID)) {
-      refreshAdventurersBeforeTokenId(
-        V3_CONTRACT_START_TOKEN_ID,
-        event.address
-      );
-    }
+    refreshTokensPriorToV3 = tokenId.equals(V3_CONTRACT_START_TOKEN_ID);
   }
 
   let transfer = getTransfer(event, wallets);
   transfer.adventurer = tokenId.toString();
   transfer.save();
+
+  // New V3 contract updates renderer
+  if (refreshTokensPriorToV3) {
+    refreshAdventurersBeforeTokenId(V3_CONTRACT_START_TOKEN_ID, event.address);
+  }
 }
 
 export function handleNameLostMana(event: NameLostMana): void {
@@ -101,10 +100,8 @@ function refreshAdventurersBeforeTokenId(
   tokenId: BigInt,
   contractAddress: Address
 ): void {
-  if (tokenId.lt(BigInt.fromI32(1))) {
-    return;
-  }
-  for (let i = tokenId.toI32() - 1; i > 0; i--) {
+  const start = tokenId.toI32() - 1;
+  for (let i = start; i > 0; i--) {
     refreshAdventurerByTokenId(BigInt.fromI32(i), contractAddress);
   }
 }
@@ -116,7 +113,7 @@ function refreshAdventurerByTokenId(
   let adventurer = Adventurer.load(tokenId.toString());
   if (adventurer != null) {
     let contract = GenesisAdventurer.bind(contractAddress);
-    updateGAdventurerWithLootTokenIds(
+    updateAdventurerWithLootTokenIds(
       adventurer,
       contract.getLootTokenIds(tokenId),
       contract
@@ -125,7 +122,7 @@ function refreshAdventurerByTokenId(
   }
 }
 
-export function updateGAdventurerWithLootTokenIds(
+export function updateAdventurerWithLootTokenIds(
   adventurer: Adventurer,
   lootTokenIds: BigInt[],
   contract: GenesisAdventurer

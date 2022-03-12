@@ -18,7 +18,7 @@ import {
   getItemLevel,
   getItemRank
 } from "./glr_utils";
-import { updateGAdventurerWithLootTokenIds } from "./ga_mapping";
+import { updateAdventurerWithLootTokenIds } from "./ga_mapping";
 import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
 
 export function handleTransfer(event: TransferEvent): void {
@@ -121,8 +121,11 @@ export function handleTransfer(event: TransferEvent): void {
   let transfer = getTransfer(event, wallets);
   transfer.mana = tokenId.toString();
   transfer.save();
-
-  updateAdventurerIfSummoned(event);
+  
+  // Ring is the last item transfered in a GA Summon call
+  if (mana.inventoryId == 7) {
+    updateAdventurerIfSummoned(event);
+  }
 }
 
 function createMana(event: TransferEvent): Mana {
@@ -172,15 +175,19 @@ function createLostManaNames(): void {
   }
 }
 
-function updateAdventurerIfSummoned(event: TransferEvent): void {
-  // If GA summoning, last transfer will be the ring at logIndex 16
-  if (event.logIndex.toString() != "16") {
-    return;
-  }
+function getTransferId(
+  transaction: string,
+  event: TransferEvent,
+  minus: i32
+): string {
+  return (
+    transaction + "-" + event.logIndex.minus(BigInt.fromI32(minus)).toString()
+  );
+}
 
-  // GAdventurer is the first transfer in transaction
+function updateAdventurerIfSummoned(event: TransferEvent): void {
   const transaction = event.transaction.hash.toHex();
-  const gaTransfer = Transfer.load(transaction + "-0");
+  const gaTransfer = Transfer.load(getTransferId(transaction, event, 16));
 
   if (gaTransfer == null || gaTransfer.adventurer == null) {
     return;
@@ -191,28 +198,37 @@ function updateAdventurerIfSummoned(event: TransferEvent): void {
   if (adventurer == null) {
     return;
   }
-  updateGAdventurerWithLootTokenIds(
+  const weaponTransferId = getTransferId(transaction, event, 14);
+  const chestTransferId = getTransferId(transaction, event, 12);
+  const headTransferId = getTransferId(transaction, event, 10);
+  const waistTransferId = getTransferId(transaction, event, 8);
+  const footTransferId = getTransferId(transaction, event, 6);
+  const handTransferId = getTransferId(transaction, event, 4);
+  const neckTransferId = getTransferId(transaction, event, 2);
+  const ringTransferId = getTransferId(transaction, event, 0);
+
+  updateAdventurerWithLootTokenIds(
     adventurer as Adventurer,
     [
-      getLootIdByManaTransferId(transaction + "-2"), // Weapon
-      getLootIdByManaTransferId(transaction + "-4"), // Chest
-      getLootIdByManaTransferId(transaction + "-6"), // Head
-      getLootIdByManaTransferId(transaction + "-8"), // Waist
-      getLootIdByManaTransferId(transaction + "-10"), // Foot
-      getLootIdByManaTransferId(transaction + "-12"), // Hand
-      getLootIdByManaTransferId(transaction + "-14"), // Neck
-      getLootIdByManaTransferId(transaction + "-16") // Ring
+      getLootIdByManaTransferId(weaponTransferId),
+      getLootIdByManaTransferId(chestTransferId),
+      getLootIdByManaTransferId(headTransferId),
+      getLootIdByManaTransferId(waistTransferId),
+      getLootIdByManaTransferId(footTransferId),
+      getLootIdByManaTransferId(handTransferId),
+      getLootIdByManaTransferId(neckTransferId),
+      getLootIdByManaTransferId(ringTransferId)
     ],
     GenesisAdventurer.bind(event.transaction.to as Address)
   );
-  adventurer.weaponGM = getManaTokenId(transaction + "-2");
-  adventurer.chestGM = getManaTokenId(transaction + "-4");
-  adventurer.headGM = getManaTokenId(transaction + "-6");
-  adventurer.waistGM = getManaTokenId(transaction + "-8");
-  adventurer.footGM = getManaTokenId(transaction + "-10");
-  adventurer.handGM = getManaTokenId(transaction + "-12");
-  adventurer.neckGM = getManaTokenId(transaction + "-14");
-  adventurer.ringGM = getManaTokenId(transaction + "-16");
+  adventurer.weaponGM = getManaTokenId(weaponTransferId);
+  adventurer.chestGM = getManaTokenId(chestTransferId);
+  adventurer.headGM = getManaTokenId(headTransferId);
+  adventurer.waistGM = getManaTokenId(waistTransferId);
+  adventurer.footGM = getManaTokenId(footTransferId);
+  adventurer.handGM = getManaTokenId(handTransferId);
+  adventurer.neckGM = getManaTokenId(neckTransferId);
+  adventurer.ringGM = getManaTokenId(ringTransferId);
 
   adventurer.save();
 }
@@ -224,6 +240,7 @@ function getManaTokenId(transferId: string): string {
   }
   return manaTransfer.mana as string;
 }
+
 function getLootIdByManaTransferId(transferId: string): BigInt {
   const manaTokenId = getManaTokenId(transferId);
   if (manaTokenId.length == 0) {
