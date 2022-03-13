@@ -13,7 +13,7 @@ import {
   getAdventurerRating
 } from "./glr_utils";
 
-const V3_CONTRACT_START_TOKEN_ID = BigInt.fromI32(480);
+const REFRESH_RENDERER_START_TOKEN_ID = BigInt.fromI32(500);
 
 export function handleTransfer(event: TransferEvent): void {
   let tokenId = event.params.tokenId;
@@ -31,7 +31,6 @@ export function handleTransfer(event: TransferEvent): void {
   );
   wallets.toWallet.save();
 
-  let refreshTokensPriorToV3 = false;
   let adventurer = Adventurer.load(tokenId.toString());
   if (adventurer != null) {
     adventurer.currentOwner = wallets.toWallet.id;
@@ -60,17 +59,18 @@ export function handleTransfer(event: TransferEvent): void {
       order.adventurersHeld = order.adventurersHeld.plus(BigInt.fromI32(1));
       order.save();
     }
-    refreshTokensPriorToV3 = tokenId.equals(V3_CONTRACT_START_TOKEN_ID);
+ 
+     // New V3 contract updates renderer
+    if (tokenId.equals(REFRESH_RENDERER_START_TOKEN_ID)) {
+      refreshAdventurersBeforeTokenId(REFRESH_RENDERER_START_TOKEN_ID, event.address);
+    }
   }
 
   let transfer = getTransfer(event, wallets);
   transfer.adventurer = tokenId.toString();
   transfer.save();
 
-  // New V3 contract updates renderer
-  if (refreshTokensPriorToV3) {
-    refreshAdventurersBeforeTokenId(V3_CONTRACT_START_TOKEN_ID, event.address);
-  }
+ 
 }
 
 export function handleNameLostMana(event: NameLostMana): void {
