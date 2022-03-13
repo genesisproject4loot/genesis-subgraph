@@ -21,6 +21,9 @@ import {
 import { updateAdventurerWithLootTokenIds } from "./ga_mapping";
 import { GenesisAdventurer } from "../generated/GenesisAdventurer/GenesisAdventurer";
 
+
+const GENESIS_ADVENTURER_CONTRACT = "0x8db687aceb92c66f013e1d614137238cc698fedb";
+
 export function handleTransfer(event: TransferEvent): void {
   let tokenId = event.params.tokenId;
   let wallets = getWallets(event.params.from, event.params.to, event);
@@ -219,7 +222,7 @@ function updateAdventurerIfSummoned(event: TransferEvent): void {
       getLootIdByManaTransferId(neckTransferId),
       getLootIdByManaTransferId(ringTransferId)
     ],
-    GenesisAdventurer.bind(event.transaction.to as Address)
+    GenesisAdventurer.bind(Address.fromString(GENESIS_ADVENTURER_CONTRACT))
   );
   adventurer.weaponGM = getManaTokenId(weaponTransferId);
   adventurer.chestGM = getManaTokenId(chestTransferId);
